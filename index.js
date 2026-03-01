@@ -1,6 +1,6 @@
 // === Constants ===
 const BASE = "https://fsa-crud-2aa9294fe819.herokuapp.com/api";
-const COHORT = ""; // Make sure to change this!
+const COHORT = "/2601-FTB-CT-WEB-PT"; // Make sure to change this!
 const API = BASE + COHORT;
 
 // === State ===
@@ -31,6 +31,104 @@ async function getParty(id) {
   } catch (e) {
     console.error(e);
   }
+}
+// add party
+async function addParty(party) {
+  try {
+    const responce = await fetch(API + "/events", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(party),
+    });
+    const result = await responce.json();
+
+    parties.push(result.data);
+
+    render();
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+function PartyForm() {
+  const $form = document.createElement("form");
+
+  $form.innerHTML = `
+    <h2>Add New Party</h2>
+    <input name="name" placeholder="Name" required />
+    <input name="description" placeholder="Description" required />
+    <input name="date" type="date" required />
+    <input name="location" placeholder="Location" required />
+    <button>Add Party</button>
+  `;
+
+  $form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    const formData = new FormData($form);
+
+    const isoDate = new Date(formData.get("date")).toISOString();
+
+    await addParty({
+      name: formData.get("name"),
+      description: formData.get("description"),
+      date: isoDate,
+      location: formData.get("location"),
+    });
+
+    $form.reset();
+  });
+
+  return $form;
+}
+
+//remove party
+async function removeParty(id) {
+  try {
+    const response = await fetch(API + "/events/" + id, {
+      method: "DELETE",
+    });
+
+    parties = parties.filter((party) => party.id !== id);
+
+    if (selectedParty && selectedParty.id === id) {
+      selectedParty = null;
+    }
+
+    render();
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+function SelectedParty() {
+  if (!selectedParty) {
+    const $p = document.createElement("p");
+    $p.textContent = "Please select a party to learn more.";
+    return $p;
+  }
+
+  const $party = document.createElement("section");
+
+  $party.innerHTML = `
+    <h3>${selectedParty.name} #${selectedParty.id}</h3>
+    <time datetime="${selectedParty.date}">
+      ${selectedParty.date.slice(0, 10)}
+    </time>
+    <address>${selectedParty.location}</address>
+    <p>${selectedParty.description}</p>
+  `;
+
+  const $deleteBtn = document.createElement("button");
+  $deleteBtn.textContent = "Delete Party";
+  $deleteBtn.addEventListener("click", () => removeParty(selectedParty.id));
+
+  $party.appendChild($deleteBtn);
+  $party.appendChild(GuestList());
+
+  return $party;
 }
 
 /** Updates state with all RSVPs from the API */
@@ -85,36 +183,13 @@ function PartyList() {
   return $ul;
 }
 
-/** Detailed information about the selected party */
-function SelectedParty() {
-  if (!selectedParty) {
-    const $p = document.createElement("p");
-    $p.textContent = "Please select a party to learn more.";
-    return $p;
-  }
-
-  const $party = document.createElement("section");
-  $party.innerHTML = `
-    <h3>${selectedParty.name} #${selectedParty.id}</h3>
-    <time datetime="${selectedParty.date}">
-      ${selectedParty.date.slice(0, 10)}
-    </time>
-    <address>${selectedParty.location}</address>
-    <p>${selectedParty.description}</p>
-    <GuestList></GuestList>
-  `;
-  $party.querySelector("GuestList").replaceWith(GuestList());
-
-  return $party;
-}
-
 /** List of guests attending the selected party */
 function GuestList() {
   const $ul = document.createElement("ul");
   const guestsAtParty = guests.filter((guest) =>
     rsvps.find(
-      (rsvp) => rsvp.guestId === guest.id && rsvp.eventId === selectedParty.id
-    )
+      (rsvp) => rsvp.guestId === guest.id && rsvp.eventId === selectedParty.id,
+    ),
   );
 
   // Simple components can also be created anonymously:
@@ -128,12 +203,15 @@ function GuestList() {
   return $ul;
 }
 
-// === Render ===
 function render() {
   const $app = document.querySelector("#app");
   $app.innerHTML = `
     <h1>Party Planner</h1>
     <main>
+      <section>
+        <h2>Add Party</h2>
+        <PartyForm></PartyForm>
+      </section>
       <section>
         <h2>Upcoming Parties</h2>
         <PartyList></PartyList>
@@ -145,6 +223,7 @@ function render() {
     </main>
   `;
 
+  $app.querySelector("PartyForm").replaceWith(PartyForm());
   $app.querySelector("PartyList").replaceWith(PartyList());
   $app.querySelector("SelectedParty").replaceWith(SelectedParty());
 }
